@@ -25,9 +25,10 @@
 # define IP_TYPE     "IP@"
 # define IPS_FIELD   "IPS"
 
+
 static int convert_mac (uint8_t *bin, const char *str)
 {
-	return ether_aton_r (str, (struct ether_addr *) (bin + LUMP_MAC_OFFSET)) == NULL ;
+	return ether_aton (str, (struct ether_addr *) (bin + LUMP_MAC_OFFSET)) == NULL ;
 }
 
 static int convert_ip (uint8_t *bin, const char *str)

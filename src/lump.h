@@ -13,7 +13,7 @@
 
 # include <stdint.h>
 # include <netinet/in.h>
-# include <netinet/ether.h>
+# include "ethernet.h"
 
 # define LUMP_MAC_OFFSET 2
 

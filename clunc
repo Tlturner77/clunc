@@ -1,4 +1,4 @@
-#! /bin/sh -e
+#! /bin/sh
 
 # CLUNC
 # Copyright 2009 Thomas Monjalon
@@ -42,7 +42,7 @@ set_defaults () {
 
 handle_args () {
 	SELF=$(basename $0)
-	SELF_DIR=$(readlink -em $(dirname $0))
+	SELF_DIR=$(readlink $(dirname $0))
 
 	while getopts 'hvm:i:w:' ARG ; do
 		case $ARG in
@@ -84,7 +84,7 @@ handle_args () {
 }
 
 find_open () {
-	OPEN_BIN=$(find $SELF_DIR -name "$1")
+	OPEN_BIN=$(find $SELF_DIR  "$1")
 	OPEN_BIN=${OPEN_BIN:-$1}
 	if ! which $OPEN_BIN >/dev/null ; then
 		echo "Cannot find $1. Try make..." >&2
@@ -94,7 +94,7 @@ find_open () {
 
 try_resume () {
 	get_nc_cmd
-	if [ -z "$(printf '\3' | $NC_CMD -q 1)" ] ; then
+	if [ -z "$(printf '\3' | $NC_CMD -G 1 )" ] ; then
 		return 1
 	fi
 }
