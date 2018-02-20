@@ -1,0 +1,108 @@
+CLaCUBooNC, CLUBooNC, CLUNC !
+     which stands for
+Client for LaCie U-Boot NetConsole
+      in other words
+Client to connect on the NetConsole of the U-Boot which is customized by LaCie
+
+
+How it works ?
+------------
+
+CLUNC is a shell script which needs 2 components:
+    1) clunc-open which opens a session,
+    2) netcat (also called nc) which uses the session.
+
+First, clunc-open broadcasts a magic packet (LUMP) in a loop.
+When U-Boot receives a packet, it switches to the NetConsole mode.
+A prompt is sent to clunc-open which stops sending LUMP.
+It is now possible to send commands and receive answers via UDP.
+Netcat is used to communicate with the NetConsole of U-Boot.
+
+The network interface of the NAS must have an IP address which
+is correctly routed on your network.
+This address must be set via the LUMP with the option "-i".
+
+The first LaCie NAS which is booting will be stopped by the LUMP.
+It is possible to target a NAS by its MAC address with the option "-m".
+Some NAS (or U-Boot versions) doesn't support this feature.
+
+
+How to install ?
+--------------
+
+Download CLUNC with :
+    git clone git://lacie-nas.org/clunc.git
+
+It includes a shell script named clunc which needs 2 components:
+    1) clunc-open is built by typing make.
+    2) netcat should be provided by your distribution.
+
+If you want to move the script, you must move the tool clunc-open
+     in the same tree
+  or in a directory pointed by PATH.
+
+
+How to use it ?
+-------------
+
+CLUNC must be launched before switching on the NAS.
+It will wait until U-Boot is ready.
+
+If an U-Boot is already in NetConsole mode, the session will be resumed.
+Before resuming a session, CLUNC sends a break character (Ctrl+C) to U-Boot.
+If a command was running, the break will abort it.
+
+It can be used
+     as an interactive shell
+  or to send a batch of commands via the standard input
+
+In case of batch commands, CLUNC will close itself after a inactivity time.
+This timeout can be defined with option "-w". The default is 1 second.
+
+Examples:
+    clunc -i 192.168.42.3
+    clunc -i 192.168.42.3 < uboot-commands
+    echo print | clunc -i 192.168.42.3
+
+
+What to do when connected ?
+-------------------------
+
+U-Boot waits commands.
+'help' prints available commands.
+'print' prints environment variables.
+
+The variables 'ipaddr' and 'serverip' are automatically set to IP addresses of
+NAS and machine running clunc, respectively.
+
+A Linux image can be downloaded via TFTP:
+    tftp 0x800000 uImage
+Launch it with command 'bootm'
+
+
+How to see Linux messages ?
+-------------------------
+
+Linux can log its messages via netconsole if compiled with option CONFIG_NETCONSOLE.
+This feature must be configured at boot time:
+    set bootargs netconsole=6666@${ipaddr}/,6666@${serverip}/
+
+
+Why my vanilla kernel doesn't boot ?
+----------------------------------
+
+The bootloader is configured to boot LaCie kernels.
+
+In order to boot a standard kernel, 2 variables must be set:
+    set mainlineLinux yes
+    set arcNumber xxxx
+    save
+    reset
+The variable 'arcNumber' must match the official mach ID of your board.
+It can be found at:
+    http://www.arm.linux.org.uk/developer/machines/download.php
+
+To restore U-Boot for LaCie normal boot:
+    set mainlineLinux no
+    save
+    reset

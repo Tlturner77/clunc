@@ -1,0 +1,157 @@
+#! /bin/sh -e
+
+# CLUNC
+# Copyright 2009 Thomas Monjalon
+# Licensed under the GPLv3
+# See http://www.gnu.org/licenses/gpl.html
+#
+# Main script
+
+print_help () {
+	cat >&2 <<- END_OF_HELP
+		Client for LaCie U-Boot NetConsole
+
+		description: can be an interactive shell or can send batch commands from input
+
+	END_OF_HELP
+	print_usage
+}
+
+print_usage () {
+	cat >&2 <<- END_OF_USAGE
+		usage: $SELF [options]
+		options:
+		         -h           help
+		         -v           verbose
+		         -m address   MAC to target
+		         -i address   IP to set (mandatory)
+		         -w seconds   inactivity time to wait
+		                      before closing a batch session (default: 1)
+	END_OF_USAGE
+}
+
+set_defaults () {
+	unset OPEN_OPTS
+	unset TARGET_MAC
+	unset IP
+	SERVER_PORT=6666
+	CLIENT_PORT=6666
+	DELAY=1
+	VERBOSE=0
+}
+
+handle_args () {
+	SELF=$(basename $0)
+	SELF_DIR=$(readlink -em $(dirname $0))
+
+	while getopts 'hvm:i:w:' ARG ; do
+		case $ARG in
+			h )
+				print_help
+				exit 0
+			;;
+			v )
+				VERBOSE=1
+			;;
+			m )
+				TARGET_MAC=$OPTARG
+				OPEN_OPTS="$OPEN_OPTS -m $TARGET_MAC"
+			;;
+			i )
+				IP=$OPTARG
+				OPEN_OPTS="$OPEN_OPTS -i $IP"
+			;;
+			w )
+				DELAY=$OPTARG
+			;;
+			* )
+				printf "\n" >&2
+				print_usage
+				exit 1
+			;;
+		esac
+	done
+	if [ $# -ge $OPTIND ] ; then
+		printf "too many arguments\n\n" >&2
+		print_usage
+		exit 1
+	fi
+	if [ -z "$IP" ] ; then
+		printf "option -i required\n\n" >&2
+		print_usage
+		exit 1
+	fi
+}
+
+find_open () {
+	OPEN_BIN=$(find $SELF_DIR -name "$1")
+	OPEN_BIN=${OPEN_BIN:-$1}
+	if ! which $OPEN_BIN >/dev/null ; then
+		echo "Cannot find $1. Try make..." >&2
+		exit 1
+	fi
+}
+
+try_resume () {
+	get_nc_cmd
+	if [ -z "$(printf '\3' | $NC_CMD -q 1)" ] ; then
+		return 1
+	fi
+}
+
+get_nc_cmd () {
+	NC_CMD="nc -u -p $CLIENT_PORT $IP $SERVER_PORT"
+}
+
+print_wait () {
+	if [ $VERBOSE -gt 0 ] ; then
+		echo 'waiting U-Boot...'
+	fi
+}
+
+print_resume () {
+	if [ $VERBOSE -gt 0 ] ; then
+		echo 'break and resume'
+	fi
+}
+
+print_header () {
+	if [ $VERBOSE -gt 0 ] ; then
+		cat <<- END_OF_HEADER
+
+			U-Boot NetConsole
+			-----------------
+
+		END_OF_HEADER
+
+		if [ -t 0 ] ; then # input from a terminal
+			echo 'interactive shell'
+		else # input is a pipe or a file
+			echo 'batch commands (close with CTRL+C when done)'
+			echo
+		fi
+	fi
+}
+
+set_defaults
+handle_args "$@"
+find_open $SELF-open
+# try to break and resume a session
+if try_resume ; then
+	# NetConsole is already opened
+	print_resume
+else
+	# no session -> try to open a new one
+	print_wait
+	$OPEN_BIN $OPEN_OPTS
+	get_nc_cmd
+fi
+# NetConsole is ready
+print_header
+if [ -t 0 ] ; then # input from a terminal
+	(echo ; cat) | $NC_CMD
+else # input is a pipe or a file
+	printf 'Marvell>> '
+	$NC_CMD -w $DELAY
+	echo ; echo
+fi
